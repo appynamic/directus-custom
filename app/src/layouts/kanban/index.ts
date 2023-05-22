@@ -1,11 +1,12 @@
 import api, { addTokenToURL } from '@/api';
 import { useFieldsStore } from '@/stores/fields';
 import { useRelationsStore } from '@/stores/relations';
+import { useServerStore } from '@/stores/server';
 import { getRootPath } from '@/utils/get-root-path';
 import { translate } from '@/utils/translate-literal';
 import { useCollection, useFilterFields, useItems, useSync } from '@directus/composables';
 import { User } from '@directus/types';
-import { defineLayout, getRelationType, moveInArray } from '@directus/utils';
+import { defineLayout, getEndpoint, getRelationType, moveInArray } from '@directus/utils';
 import { computed, ref, toRefs, watch } from 'vue';
 import KanbanActions from './actions.vue';
 import KanbanLayout from './kanban.vue';
@@ -18,6 +19,7 @@ export default defineLayout<LayoutOptions, LayoutQuery>({
 	icon: 'view_week',
 	component: KanbanLayout,
 	headerShadow: false,
+	sidebarShadow: true,
 	slots: {
 		options: KanbanOptions,
 		sidebar: () => undefined,
@@ -26,6 +28,7 @@ export default defineLayout<LayoutOptions, LayoutQuery>({
 	setup(props, { emit }) {
 		const fieldsStore = useFieldsStore();
 		const relationsStore = useRelationsStore();
+		const { info: serverInfo } = useServerStore();
 
 		const layoutOptions = useSync(props, 'layoutOptions', emit);
 		const layoutQuery = useSync(props, 'layoutQuery', emit);
@@ -70,8 +73,12 @@ export default defineLayout<LayoutOptions, LayoutQuery>({
 				}
 			},
 			group: (field) => {
-				if (field.meta?.options && Object.keys(field.meta?.options).includes('choices')) {
-					return Object.keys(field.meta?.options).includes('choices');
+				if (
+					field.meta?.options &&
+					Object.keys(field.meta.options).includes('choices') &&
+					['string', 'integer', 'float', 'bigInteger'].includes(field.type)
+				) {
+					return Object.keys(field.meta.options).includes('choices');
 				}
 
 				const relation = relationsStore.relations.find(
@@ -248,7 +255,7 @@ export default defineLayout<LayoutOptions, LayoutQuery>({
 			const gField = groupField.value;
 			const pkField = primaryKeyField.value?.field;
 
-			if (gField === null || pkField === undefined || event.removed) return;
+			if (gField === null || pkField === undefined || event.removed || !collection.value) return;
 
 			if (event.moved) {
 				const item = group.items[event.moved.oldIndex]?.id;
@@ -281,7 +288,7 @@ export default defineLayout<LayoutOptions, LayoutQuery>({
 					}
 				}
 
-				await api.patch(`/items/${collection.value}/${event.added.element.id}`, {
+				await api.patch(`${getEndpoint(collection.value)}/${event.added.element.id}`, {
 					[gField]: group.id,
 				});
 			}
@@ -351,7 +358,7 @@ export default defineLayout<LayoutOptions, LayoutQuery>({
 			function createViewOption<T>(key: keyof LayoutOptions, defaultValue: any) {
 				return computed<T>({
 					get() {
-						return layoutOptions.value?.[key] ?? defaultValue;
+						return layoutOptions.value?.[key] !== undefined ? layoutOptions.value[key] : defaultValue;
 					},
 					set(newValue: T) {
 						layoutOptions.value = {
@@ -409,6 +416,8 @@ export default defineLayout<LayoutOptions, LayoutQuery>({
 				return null;
 			});
 
+			const limit = serverInfo.queryLimit?.max && serverInfo.queryLimit.max !== -1 ? serverInfo.queryLimit.max : 100;
+
 			const {
 				items: relationalGroupsItems,
 				loading: groupsLoading,
@@ -417,7 +426,7 @@ export default defineLayout<LayoutOptions, LayoutQuery>({
 				getItems: getGroups,
 			} = useItems(groupsCollection, {
 				sort,
-				limit: ref(100),
+				limit: ref(limit),
 				page: ref(1),
 				fields: groupFieldsToLoad,
 				filter: ref({}),
@@ -450,19 +459,19 @@ export default defineLayout<LayoutOptions, LayoutQuery>({
 			async function deleteGroup(id: string | number) {
 				const pkField = primaryKeyField.value?.field;
 
-				if (pkField === undefined) return;
+				if (pkField === undefined || !groupsCollection.value) return;
 
 				items.value = items.value.filter((item) => item[pkField] !== id);
 
-				await api.delete(`/items/${groupsCollection.value}/${id}`);
+				await api.delete(`${getEndpoint(groupsCollection.value)}/${id}`);
 
 				await getGroups();
 			}
 
 			async function addGroup(title: string) {
-				if (groupTitle.value === null) return;
+				if (groupTitle.value === null || !groupsCollection.value) return;
 
-				await api.post(`/items/${groupsCollection.value}`, {
+				await api.post(getEndpoint(groupsCollection.value), {
 					[groupTitle.value]: title,
 				});
 
@@ -471,9 +480,9 @@ export default defineLayout<LayoutOptions, LayoutQuery>({
 
 			async function editGroup(id: string | number, title: string) {
 				if (isRelational.value) {
-					if (groupTitle.value === null) return;
+					if (groupTitle.value === null || !groupsCollection.value) return;
 
-					await api.patch(`/items/${groupsCollection.value}/${id}`, {
+					await api.patch(`${getEndpoint(groupsCollection.value)}/${id}`, {
 						[groupTitle.value]: title,
 					});
 				} else {
