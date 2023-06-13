@@ -3,6 +3,7 @@ import Joi from 'joi';
 import { isPlainObject, uniq } from 'lodash-es';
 import { stringify } from 'wellknown';
 import env from '../env.js';
+import { JSON_QUERY_REGEX } from './parse-json-function.js';
 import { InvalidQueryException } from '../exceptions/invalid-query.js';
 import { calculateFieldDepth } from './calculate-field-depth.js';
 
@@ -171,7 +172,15 @@ function validateAlias(alias: any) {
 			throw new InvalidQueryException(`"alias" value has to be a string. "${typeof key}" given.`);
 		}
 
-		if (key.includes('.') || value.includes('.')) {
+		if (value.startsWith('json(')) {
+			if (key.includes('.')) {
+				throw new InvalidQueryException(`"alias" key can't contain a period character \`.\``);
+			}
+
+			if (JSON_QUERY_REGEX.test(value) === false) {
+				throw new InvalidQueryException(`"json" path does not match the allowed pattern.`);
+			}
+		} else if (key.includes('.') || value.includes('.')) {
 			throw new InvalidQueryException(`"alias" key/value can't contain a period character \`.\``);
 		}
 	}

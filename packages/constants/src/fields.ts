@@ -66,4 +66,4 @@ export const RELATIONAL_TYPES = [
 	'group',
 ] as const;
 
-export const FUNCTIONS = ['year', 'month', 'week', 'day', 'weekday', 'hour', 'minute', 'second', 'count'] as const;
+export const FUNCTIONS = ['year', 'month', 'week', 'day', 'weekday', 'hour', 'minute', 'second', 'count', 'json'] as const;

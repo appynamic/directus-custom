@@ -1,14 +1,17 @@
-import { REGEX_BETWEEN_PARENS } from '@directus/constants';
+//import { REGEX_BETWEEN_PARENS } from '@directus/constants';
 import type { FieldFunction, Query, SchemaOverview } from '@directus/types';
 import { getFunctionsForType } from '@directus/utils';
 import type { Knex } from 'knex';
 import { getFunctions } from '../database/helpers/index.js';
 import { InvalidQueryException } from '../exceptions/index.js';
 import { applyFunctionToColumnName } from './apply-function-to-column-name.js';
+import { stripFunction } from './strip-function.js';
+import { parseJsonFunction } from './parse-json-function.js';
 
 type GetColumnOptions = {
 	query?: Query | undefined;
 	originalCollectionName?: string | undefined;
+	jsonPath?: string | undefined; // json-path to query
 };
 
 /**
@@ -32,15 +35,31 @@ export function getColumn(
 	options?: GetColumnOptions
 ): Knex.Raw {
 	const fn = getFunctions(knex, schema);
+	//console.log('__fn__', fn['json']);
 
-	if (column.includes('(') && column.includes(')')) {
+	if (column && column.includes('(') && column.includes(')')) {
 		const functionName = column.split('(')[0] as FieldFunction;
-		const columnName = column.match(REGEX_BETWEEN_PARENS)![1];
+		//const columnName = stripFunction(column);
+		let columnName = stripFunction(column);
+		//const columnName = column.match(REGEX_BETWEEN_PARENS)![1];		
+		let functionJsonParsed = null;
+		
+		if (functionName === 'json') {
+			// @todo move code in stripFunction to have correct column name ?
+			functionJsonParsed = parseJsonFunction(column);
+			//const { fieldName, jsonPath } = parseJsonFunction(column);
+			//console.log('___parseCurrentLevel__fieldName____json____parse=', functionJsonParsed);		
+			columnName = functionJsonParsed.fieldName;
+		}
+					
+		console.log('_____getColumn____', columnName, functionName, alias);
 
 		if (functionName in fn) {
 			const collectionName = options?.originalCollectionName || table;
 			const type = schema?.collections[collectionName]?.fields?.[columnName!]?.type ?? 'unknown';
 			const allowedFunctions = getFunctionsForType(type);
+			
+			console.log('_____getColumn____ more ', collectionName, type, allowedFunctions);
 
 			if (allowedFunctions.includes(functionName) === false) {
 				throw new InvalidQueryException(`Invalid function specified "${functionName}"`);
@@ -49,7 +68,10 @@ export function getColumn(
 			const result = fn[functionName as keyof typeof fn](table, columnName!, {
 				type,
 				query: options?.query,
-				originalCollectionName: options?.originalCollectionName,
+				originalCollectionName: options?.originalCollectionName,				
+				jsonPath: functionJsonParsed?.jsonPath, // options?.jsonPath,
+				//fieldKey: 'test',
+				// temporary ???
 			}) as Knex.Raw;
 
 			if (alias) {

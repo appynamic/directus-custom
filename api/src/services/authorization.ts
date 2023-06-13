@@ -47,6 +47,8 @@ export class AuthorizationService {
 
 	async processAST(ast: AST, action: PermissionsAction = 'read'): Promise<AST> {
 		const collectionsRequested = getCollectionsFromAST(ast);
+		
+		console.log('___collectionsRequested__', collectionsRequested);
 
 		const permissionsForCollections =
 			uniqWith(
@@ -94,14 +96,18 @@ export class AuthorizationService {
 					field: ast.type === 'root' ? null : ast.fieldKey,
 				});
 
-				for (const nestedNode of ast.children) {
-					if (nestedNode.type === 'functionField') {
-						collections.push({
-							collection: nestedNode.relatedCollection,
-							field: null,
-						});
-					} else if (nestedNode.type !== 'field') {
-						collections.push(...getCollectionsFromAST(nestedNode));
+				if ('children' in ast) {
+					for (const nestedNode of ast.children) {
+						if (nestedNode.type === 'functionField') {
+							collections.push({
+								//collection: nestedNode.relatedCollection,
+								collection: (nestedNode?.jsonPath) ? ast.name : nestedNode.relatedCollection,
+								//field: null,
+								field: (nestedNode?.jsonPath) ? nestedNode.name : null,
+							});
+						} else if (nestedNode.type !== 'field') {
+							collections.push(...getCollectionsFromAST(nestedNode));
+						}
 					}
 				}
 			}
@@ -110,7 +116,7 @@ export class AuthorizationService {
 		}
 
 		function validateFields(ast: AST | NestedCollectionNode | FieldNode | FunctionFieldNode) {
-			if (ast.type !== 'field' && ast.type !== 'functionField') {
+			if (ast.type !== 'field' && ast.type !== 'functionField' && 'children' in ast) {
 				if (ast.type === 'a2o') {
 					for (const [collection, children] of Object.entries(ast.children)) {
 						checkFields(collection, children, ast.query?.[collection]?.aggregate);
@@ -141,7 +147,7 @@ export class AuthorizationService {
 				}
 
 				for (const childNode of children) {
-					if (childNode.type !== 'field') {
+					if (childNode.type !== 'field' && (childNode.type !== 'functionField' || (childNode.type === 'functionField' && !childNode.jsonPath)) ) {
 						validateFields(childNode);
 						continue;
 					}
@@ -174,6 +180,7 @@ export class AuthorizationService {
 						);
 
 						for (const child of ast.children[collection]!) {
+							if (child.type === 'functionField' && child?.jsonPath) continue;
 							const childPermissions = validateFilterPermissions(child, schema, action, accountability);
 
 							if (Object.keys(childPermissions).length > 0) {
@@ -425,9 +432,11 @@ export class AuthorizationService {
 			accountability: Accountability | null
 		): AST | NestedCollectionNode | FieldNode | FunctionFieldNode {
 			if (ast.type === 'functionField') {
-				const collection = ast.relatedCollection;
+				if (!ast?.jsonPath) {
+					const collection = ast.relatedCollection;
 
-				updateFilterQuery(collection, ast.query);
+					updateFilterQuery(collection, ast.query);
+				}
 			} else if (ast.type !== 'field') {
 				if (ast.type === 'a2o') {
 					const collections = Object.keys(ast.children);

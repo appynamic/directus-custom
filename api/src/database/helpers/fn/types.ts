@@ -7,6 +7,9 @@ export type FnHelperOptions = {
 	type: string | undefined;
 	query: Query | undefined;
 	originalCollectionName: string | undefined;
+	jsonPath: string | undefined; // json-path to query
+	//fieldKey: string | undefined; // alias to use for the result
+	//temporary: boolean | undefined; // temporary nodes do not need to be in the final API response. These are sometimes required for filtering
 };
 
 export abstract class FnHelper extends DatabaseHelper {
@@ -24,6 +27,7 @@ export abstract class FnHelper extends DatabaseHelper {
 	abstract minute(table: string, column: string, options?: FnHelperOptions): Knex.Raw;
 	abstract second(table: string, column: string, options?: FnHelperOptions): Knex.Raw;
 	abstract count(table: string, column: string, options?: FnHelperOptions): Knex.Raw;
+	abstract json(table: string, column: string, options?: FnHelperOptions): Knex.Raw;
 
 	protected _relationalCount(table: string, column: string, options?: FnHelperOptions): Knex.Raw {
 		const collectionName = options?.originalCollectionName || table;

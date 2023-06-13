@@ -153,10 +153,14 @@ export class PayloadService {
 		payload: Partial<Item> | Partial<Item>[]
 	): Promise<Partial<Item> | Partial<Item>[]> {
 		const processedPayload = toArray(payload);
+		
+		console.log('____payload___processedPayload___', processedPayload);
 
 		if (processedPayload.length === 0) return [];
 
 		const fieldsInPayload = Object.keys(processedPayload[0]!);
+		
+		console.log('____payload___fieldsInPayload___', fieldsInPayload);
 
 		let specialFieldsInCollection = Object.entries(this.schema.collections[this.collection]!.fields).filter(
 			([_name, field]) => field.special && field.special.length > 0
@@ -167,6 +171,8 @@ export class PayloadService {
 				return fieldsInPayload.includes(name);
 			});
 		}
+		
+		console.log('____payload___specialFieldsInCollection___', specialFieldsInCollection);
 
 		await Promise.all(
 			processedPayload.map(async (record: any) => {
@@ -178,6 +184,8 @@ export class PayloadService {
 				);
 			})
 		);
+		
+		this.processFunctions(processedPayload, fieldsInPayload, action);
 
 		this.processGeometries(processedPayload, action);
 		this.processDates(processedPayload, action);
@@ -243,6 +251,48 @@ export class PayloadService {
 		return value;
 	}
 
+	/**
+	 * Custom functions helper
+	 */
+	processFunctions<T extends Partial<Record<string, any>>[]>(payloads: T, fieldsInPayload: any, action: Action): T {
+		const process =
+			action == 'read'
+				? (value: any) => (typeof value == 'string' ? parseJSON(value) : value)
+				: (value: any) => (value);
+
+		//console.log('processFunctions', fieldsInPayload);
+	
+		//const fieldsInCollection = Object.entries(this.schema.collections[this.collection]!.fields);
+		//console.log('__processFunctions__fieldsInCollection', fieldsInCollection);
+		//const functionColumns = fieldsInCollection.filter(([_, field]) => field.type.startsWith('json_'));
+
+		for (const name of fieldsInPayload) {
+			for (const payload of payloads) {
+				if (name.startsWith('json_') && payload[name]) {
+					payload[name] = process(payload[name]);
+				}
+			}
+		}
+
+		/*
+		async 'cast-json'({ action, value }) {
+			if (action === 'read') {
+				if (typeof value === 'string') {
+					try {
+						return parseJSON(value);
+					} catch {
+						return value;
+					}
+				}
+			}
+
+			return value;
+		},
+		*/
+		
+		return payloads;
+	}
+	
 	/**
 	 * Native geometries are stored in custom binary format. We need to insert them with
 	 * the function st_geomfromtext. For this to work, that function call must not be

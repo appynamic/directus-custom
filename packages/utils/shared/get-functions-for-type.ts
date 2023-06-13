@@ -10,9 +10,9 @@ export function getFunctionsForType(type: Type): FieldFunction[] {
 		case 'time':
 			return ['hour', 'minute', 'second'];
 		case 'json':
-			return ['count'];
+			return ['count', 'json'];
 		case 'alias': // o2m/m2m/m2a
-			return ['count'];
+			return ['count', 'json']; // @check not sure to put json function here
 		default:
 			return [];
 	}

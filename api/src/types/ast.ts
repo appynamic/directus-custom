@@ -53,7 +53,30 @@ export type FunctionFieldNode = {
 	fieldKey: string;
 	query: Query;
 	relatedCollection: string;
+	// custom behaviour for json function
+	// json-path to query
+	jsonPath?: string;
+	// temporary nodes do not need to be in the final API response
+	// these are sometimes required for filtering
+	temporary?: boolean;
 };
+
+/*
+export type JsonFieldNode = {
+	type: 'jsonField';
+	// name of the database field
+	name: string;
+	// alias to use for the result
+	fieldKey: string;
+	// json-path to query
+	jsonPath: string;
+	// additional filters
+	query: Query;
+	// temporary nodes do not need to be in the final API response
+	// these are sometimes required for filtering
+	temporary: boolean;
+};
+*/
 
 export type AST = {
 	type: 'root';

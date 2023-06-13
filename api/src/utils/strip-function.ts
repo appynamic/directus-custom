@@ -5,6 +5,7 @@ import { REGEX_BETWEEN_PARENS } from '@directus/constants';
  */
 export function stripFunction(field: string): string {
 	if (field.includes('(') && field.includes(')')) {
+		// @todo put here correct name with json
 		return field.match(REGEX_BETWEEN_PARENS)?.[1]?.trim() ?? field;
 	} else {
 		return field;

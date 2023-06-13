@@ -11,6 +11,7 @@ export function getOutputTypeForFunction(fn: FieldFunction): Type {
 		minute: 'integer',
 		second: 'integer',
 		count: 'integer',
+		json: 'json', // to display in json format, not string
 	};
 
 	return typeMap[fn];

@@ -374,7 +374,7 @@ export class ItemsService<Item extends AnyItem = AnyItem> implements AbstractSer
 						}
 				  )
 				: query;
-
+		
 		let ast = await getASTFromQuery(this.collection, updatedQuery, this.schema, {
 			accountability: this.accountability,
 			// By setting the permissions action, you can read items using the permissions for another
@@ -383,6 +383,8 @@ export class ItemsService<Item extends AnyItem = AnyItem> implements AbstractSer
 			action: opts?.permissionsAction || 'read',
 			knex: this.knex,
 		});
+		
+		console.log('____ast____', ast);
 
 		if (this.accountability && this.accountability.admin !== true) {
 			const authorizationService = new AuthorizationService({
@@ -399,6 +401,8 @@ export class ItemsService<Item extends AnyItem = AnyItem> implements AbstractSer
 			// GraphQL requires relational keys to be returned regardless
 			stripNonRequested: opts?.stripNonRequested !== undefined ? opts.stripNonRequested : true,
 		});
+
+		console.log('____ast____items', records);
 
 		if (records === null) {
 			throw new ForbiddenException();

@@ -14,6 +14,7 @@ import type { AliasMap } from '../utils/get-column-path.js';
 import { getColumn } from '../utils/get-column.js';
 import { stripFunction } from '../utils/strip-function.js';
 import getDatabase from './index.js';
+import { parseJsonFunction } from '../utils/parse-json-function.js';
 
 type RunASTOptions = {
 	/**
@@ -46,6 +47,7 @@ export default async function runAST(
 	options?: RunASTOptions
 ): Promise<null | Item | Item[]> {
 	const ast = cloneDeep(originalAST);
+	console.log('__ast__', ast);
 
 	const knex = options?.knex || getDatabase();
 
@@ -73,6 +75,7 @@ export default async function runAST(
 			children,
 			query
 		);
+		console.log('___run___parseCurrentLevel___result', fieldNodes, primaryKeyField, nestedCollectionNodes);
 
 		// The actual knex query builder instance. This is a promise that resolves with the raw items from the db
 		const dbQuery = await getDBQuery(schema, knex, collection, fieldNodes, query);
@@ -80,13 +83,17 @@ export default async function runAST(
 		const rawItems: Item | Item[] = await dbQuery;
 
 		if (!rawItems) return null;
+		
+		console.log('___run___rawItems', rawItems);
 
 		// Run the items through the special transforms
 		const payloadService = new PayloadService(collection, { knex, schema });
 		let items: null | Item | Item[] = await payloadService.processValues('read', rawItems);
 
+		console.log('___run___items after payload', items);
+		
 		if (!items || (Array.isArray(items) && items.length === 0)) return items;
-
+		
 		// Apply the `_in` filters to the nested collection batches
 		const nestedNodes = applyParentFilters(schema, nestedCollectionNodes, items);
 
@@ -153,13 +160,27 @@ async function parseCurrentLevel(
 ) {
 	const primaryKeyField = schema.collections[collection]!.primary;
 	const columnsInCollection = Object.keys(schema.collections[collection]!.fields);
+	
+	//console.log('___parseCurrentLevel__columnsInCollection', columnsInCollection, primaryKeyField);
 
 	const columnsToSelectInternal: string[] = [];
 	const nestedCollectionNodes: NestedCollectionNode[] = [];
 
 	for (const child of children) {
+		console.log('___parseCurrentLevel__', child);
 		if (child.type === 'field' || child.type === 'functionField') {
-			const fieldName = stripFunction(child.name);
+			let fieldName = stripFunction(child.name);
+
+			if (child.name.includes('(') && child.name.includes(')')) {
+				const functionName = child.name.split('(')[0];
+				if (functionName === 'json') {
+					const functionJsonParsed = parseJsonFunction(child.name); // { fieldName, jsonPath } 
+					console.log('___parseCurrentLevel__fieldName____json____parse=', functionJsonParsed);
+					fieldName = functionJsonParsed.fieldName;
+				}
+			}
+			
+			console.log('___parseCurrentLevel__fieldName='+fieldName);
 
 			if (columnsInCollection.includes(fieldName)) {
 				columnsToSelectInternal.push(child.fieldKey);
@@ -193,6 +214,8 @@ async function parseCurrentLevel(
 
 	/** Make sure select list has unique values */
 	const columnsToSelect = [...new Set(columnsToSelectInternal)];
+	
+	//console.log('____columnsToSelect____', columnsToSelect);
 
 	const fieldNodes = columnsToSelect.map(
 		(column: string) =>
@@ -220,6 +243,8 @@ function getColumnPreprocessor(knex: Knex, schema: SchemaOverview, table: string
 		}
 
 		let field;
+		
+		console.log('___getColumnPreprocessor____', fieldNode);
 
 		if (fieldNode.type === 'field' || fieldNode.type === 'functionField') {
 			field = schema.collections[table]!.fields[stripFunction(fieldNode.name)];

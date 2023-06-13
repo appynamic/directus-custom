@@ -10,9 +10,9 @@ type Translations = {
 
 export type Width = 'half' | 'half-left' | 'half-right' | 'full' | 'fill';
 
-export type Type = (typeof TYPES)[number];
+export type Type = (typeof TYPES)[number | string | any];
 
-export type FieldFunction = (typeof FUNCTIONS)[number];
+export type FieldFunction = (typeof FUNCTIONS)[number | string | any];
 
 export type LocalType = (typeof LOCAL_TYPES)[number];
 

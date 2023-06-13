@@ -81,4 +81,12 @@ export class FnHelperSQLite extends FnHelper {
 
 		throw new Error(`Couldn't extract type from ${table}.${column}`);
 	}
+	
+	json(table: string, column: string, options?: FnHelperOptions): Knex.Raw<any> {
+		console.log(options);
+		//const collectionName = options?.originalCollectionName || table;
+		//const type = this.schema.collections?.[collectionName]?.fields?.[column]?.type ?? 'unknown';
+
+		throw new Error(`Couldn't extract type from ${table}.${column}`);
+	}
 }

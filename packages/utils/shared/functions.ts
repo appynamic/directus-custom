@@ -11,6 +11,7 @@ export const functions: Record<FieldFunction, (val: any) => any> = {
 	minute,
 	second,
 	count,
+	json,
 };
 
 /**
@@ -52,3 +53,15 @@ function second(value: string): number {
 function count(value: any): number | null {
 	return Array.isArray(value) ? value.length : null;
 }
+
+function json(value: any): any | null {
+	return (typeof value === 'string' && value) ? JSON.parse(value) : ((typeof value === 'object') ? value : null);
+}
+
+/*
+function json(value: any): unknown {
+	// this is a stub that should not actually get called
+	return value;
+}
+*/
+

@@ -38,11 +38,12 @@ export function getFilterOperatorsForType(
 		case 'hash':
 			return ['empty', 'nempty', 'null', 'nnull'];
 		// JSON
-		// UUID
-		case 'uuid':
-			return ['eq', 'neq', 'null', 'nnull', 'in', 'nin'];
 		case 'json':
 			return ['null', 'nnull'];
+			
+		// UUID
+		case 'uuid':
+			return ['eq', 'neq', 'null', 'nnull', 'in', 'nin'];		
 
 		// Boolean
 		case 'boolean':

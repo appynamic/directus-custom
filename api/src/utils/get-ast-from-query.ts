@@ -2,12 +2,15 @@
  * Generate an AST based on a given collection and query
  */
 
-import { REGEX_BETWEEN_PARENS } from '@directus/constants';
+//import { REGEX_BETWEEN_PARENS } from '@directus/constants';
 import type { Accountability, PermissionsAction, Query, SchemaOverview } from '@directus/types';
 import type { Knex } from 'knex';
 import { cloneDeep, isEmpty, mapKeys, omitBy, uniq } from 'lodash-es';
 import type { AST, FieldNode, FunctionFieldNode, NestedCollectionNode } from '../types/index.js';
 import { getRelationType } from '../utils/get-relation-type.js';
+import { stripFunction } from './strip-function.js';
+import { parseJsonFunction } from './parse-json-function.js';
+//import { generateAlias } from './generate-alias.js';
 
 type GetASTOptions = {
 	accountability?: Accountability | null;
@@ -26,6 +29,8 @@ export default async function getASTFromQuery(
 	options?: GetASTOptions
 ): Promise<AST> {
 	query = cloneDeep(query);
+	
+	console.log('___getASTFromQuery___query', query);
 
 	const accountability = options?.accountability;
 	const action = options?.action || 'read';
@@ -97,6 +102,8 @@ export default async function getASTFromQuery(
 		delete query.sort;
 	}
 
+	const jsonAlias: Record<string, string | undefined> = {};
+	
 	ast.children = await parseFields(collection, fields, deep);
 
 	return ast;
@@ -114,6 +121,8 @@ export default async function getASTFromQuery(
 
 		for (const fieldKey of fields) {
 			let name = fieldKey;
+			
+			console.log('___fieldKey__', name);
 
 			if (query.alias) {
 				// check for field alias (is is one of the key)
@@ -122,6 +131,8 @@ export default async function getASTFromQuery(
 				}
 			}
 
+			const { isFunction, isRelational, isJson } = parseFieldName(name, parentCollection);
+			/*
 			const isRelational =
 				name.includes('.') ||
 				// We'll always treat top level o2m fields as a related item. This is an alias field, otherwise it won't return
@@ -129,11 +140,19 @@ export default async function getASTFromQuery(
 				!!schema.relations.find(
 					(relation) => relation.related_collection === parentCollection && relation.meta?.one_field === name
 				);
+			*/	
 
 			if (isRelational) {
 				// field is relational
-				const parts = fieldKey.split('.');
+				let parts = fieldKey.split('.');
+				let jpath;
 
+				if (isJson) {
+					const { fieldName, jsonPath } = parseJsonFunction(name);
+					parts = fieldName.split('.');
+					jpath = jsonPath;
+				}
+				
 				let rootField = parts[0]!;
 				let collectionScope: string | null = null;
 
@@ -153,7 +172,14 @@ export default async function getASTFromQuery(
 				}
 
 				if (parts.length > 1) {
-					const childKey = parts.slice(1).join('.');
+					//const childKey = parts.slice(1).join('.');
+					const childKey = isJson ? `json(${parts.slice(1).join('.')}${jpath})` : parts.slice(1).join('.');
+					if (fieldKey in jsonAlias) {
+						jsonAlias[childKey] = jsonAlias[fieldKey];
+						delete jsonAlias[fieldKey];
+					} else {
+						jsonAlias[childKey] = fieldKey;
+					}
 
 					if (collectionScope) {
 						if (collectionScope in relationalStructure[rootField]! === false) {
@@ -165,9 +191,11 @@ export default async function getASTFromQuery(
 						(relationalStructure[rootField] as string[]).push(childKey);
 					}
 				}
-			} else {
-				if (fieldKey.includes('(') && fieldKey.includes(')')) {
-					const columnName = fieldKey.match(REGEX_BETWEEN_PARENS)![1]!;
+			} else {			
+				//if (fieldKey.includes('(') && fieldKey.includes(')')) {
+				if (isFunction) {
+					const columnName = stripFunction(fieldKey);
+					//const columnName = fieldKey.match(REGEX_BETWEEN_PARENS)![1]!;
 					const foundField = schema.collections[parentCollection]!.fields[columnName];
 
 					if (foundField && foundField.type === 'alias') {
@@ -187,12 +215,84 @@ export default async function getASTFromQuery(
 							continue;
 						}
 					}
+					
+					/*
+					if (isJson) {
+						const alias = name !== fieldKey ? fieldKey : generateAlias();
+						const { fieldName, jsonPath } = parseJsonFunction(name);
+						
+						console.log('__fieldName__ '+fieldName, jsonPath, fieldKey, alias);
+						
+						if (fieldName.includes('.')) {
+							const parts = fieldName.split('.');
+							const rootField = parts[0];
+							const subField = parts.slice(1).join('.');
+							const childKey = `json(${subField}${jsonPath})`;
+							if (rootField in relationalStructure === false) {
+								relationalStructure[rootField] = [];
+							}
+							(relationalStructure[rootField] as string[]).push(childKey);
+							if (query.alias?.[fieldKey]) {
+								const relatedField = subField.includes('.')
+									? subField.substring(subField.lastIndexOf('.') + 1)
+									: subField;
+								const newFunc = `json(${relatedField}${jsonPath})`;
+								delete query.alias[fieldKey];
+								jsonAlias[newFunc] = fieldKey;
+							}
+						} else {
+							const foundField = schema.collections[parentCollection].fields[fieldName];
+							if (foundField && foundField.type === 'json') {
+								const deepKey = query.alias?.[fieldKey] ? fieldKey : jsonAlias[name];
+								const deepFilter = getDeepQuery(deep?.[deepKey] || {});
+								children.push({
+									//type: 'jsonField',
+									type: 'functionField',
+									fieldKey: jsonAlias[name] ?? alias,
+									name: fieldName,
+									jsonPath,
+									query: deepFilter,
+									temporary: false,
+								});
+								if (deep?.[deepKey]) {
+									delete deep[deepKey];
+								}
+								if (query.alias?.[fieldKey]) {
+									delete query.alias[fieldKey];
+								}
+								if (jsonAlias[name]) {
+									delete jsonAlias[name];
+								}
+							}
+						}
+						continue;
+					}
+					*/
 				}
 
 				children.push({ type: 'field', name, fieldKey });
 			}
 		}
 
+		/*
+		// transpose json functions used as filter keys
+		if (query.filter) {
+			for (const jsonField of replaceJsonFilters(query.filter)) {
+				if (jsonField.name.includes('.')) {
+					const parts = jsonField.name.split('.');
+					const rootField = parts[0];
+					const childKey = `json(${parts.slice(1).join('.')}${jsonField.jsonPath})`;
+					if (rootField in relationalStructure === false) {
+						relationalStructure[rootField] = [];
+					}
+					(relationalStructure[rootField] as string[]).push(childKey);
+				} else {
+					children.push(jsonField);
+				}
+			}
+		}
+		*/
+		
 		for (const [fieldKey, nestedFields] of Object.entries(relationalStructure)) {
 			let fieldName = fieldKey;
 
@@ -371,6 +471,28 @@ export default async function getASTFromQuery(
 		return fields;
 	}
 
+	function parseFieldName(name: string, parentCollection: string) {
+		if (name.startsWith('json(')) {
+			const { fieldName } = parseJsonFunction(name);
+			return {
+				isJson: true,
+				isFunction: true,
+				isRelational: fieldName.includes('.'),
+			};
+		}
+		return {
+			isJson: false,
+			isFunction: name.includes('(') && name.endsWith(')'),
+			isRelational:
+				name.includes('.') ||
+				// We'll always treat top level o2m fields as a related item. This is an alias field, otherwise it won't return
+				// anything
+				!!schema.relations.find(
+					(relation) => relation.related_collection === parentCollection && relation.meta?.one_field === name
+				),
+		};
+	}
+	
 	function getRelation(collection: string, field: string) {
 		const relation = schema.relations.find((relation) => {
 			return (
@@ -397,6 +519,35 @@ export default async function getASTFromQuery(
 
 		return null;
 	}
+	
+	/*
+	// change JsonFieldNode to FunctionFieldNode
+	function replaceJsonFilters(filter: Record<string, any>): JsonFieldNode[] {
+		// make this recursive later, the top level will work for now
+		const result: JsonFieldNode[] = [];
+		const filterKeys = Object.keys(filter);
+		for (const key of filterKeys) {
+			if (key.startsWith('json(')) {
+				const { fieldName, jsonPath } = parseJsonFunction(key);
+				const alias = generateAlias();
+
+				filter[alias] = filter[key];
+				delete filter[key];
+
+				result.push({
+					type: 'jsonField',
+					fieldKey: alias,
+					name: fieldName,
+					jsonPath,
+					query: {},
+					temporary: true,
+				});
+			}
+		}
+
+		return result;
+	}
+	*/
 }
 
 function getDeepQuery(query: Record<string, any>) {
