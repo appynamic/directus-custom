@@ -52,6 +52,10 @@ import { generateApiExtensionsSandboxEntrypoint } from './lib/sandbox/generate-a
 import { instantiateSandboxSdk } from './lib/sandbox/sdk/instantiate.js';
 import { wrapEmbeds } from './lib/wrap-embeds.js';
 import type { BundleConfig, ExtensionManagerOptions } from './types.js';
+// custom supercharge lib
+import { respond } from '../middleware/respond.js';
+import argon2 from 'argon2';
+import { generateHash } from '../utils/generate-hash.js';
 
 // Workaround for https://github.com/rollup/plugins/issues/1329
 const virtual = virtualDefault as unknown as typeof virtualDefault.default;
@@ -754,6 +758,21 @@ export class ExtensionManager {
 			emitter: this.localEmitter,
 			logger,
 			getSchema,
+			// supercharge : extend / share libs, middleware & methods
+			supercharge: {
+				respond, // express middleware respond with cache & compress
+				emitter: emitter, // real directus emitter			
+				hash: {
+					generate: async (stringToHash: string) => {
+						const hash = await generateHash(stringToHash);
+						return hash;
+					},
+					verify: async (hash: string, stringToHash: string) => {	
+						const result = await argon2.verify(hash, stringToHash);
+						return result;
+					}
+				}
+			}
 		});
 
 		const unregisterFunction = () => {

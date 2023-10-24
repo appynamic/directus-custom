@@ -3,6 +3,7 @@ import type { ApiExtensionContext } from './api-extension-context.js';
 
 export type EndpointExtensionContext = ApiExtensionContext & {
 	emitter: any;
+	supercharge: any;
 };
 
 type EndpointConfigFunction = (router: Router, context: EndpointExtensionContext) => void;
