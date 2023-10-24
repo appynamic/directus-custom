@@ -80,14 +80,18 @@ export default async function createApp(): Promise<express.Application> {
 		logger.warn('PUBLIC_URL should be a full URL');
 	}
 
-	await validateStorage();
+	if (!env['SERVERLESS']) {
+		await validateStorage();
 
-	await validateDatabaseConnection();
-	await validateDatabaseExtensions();
+		await validateDatabaseConnection();
+		await validateDatabaseExtensions();
 
-	if ((await isInstalled()) === false) {
-		logger.error(`Database doesn't have Directus tables installed.`);
-		process.exit(1);
+		if ((await isInstalled()) === false) {
+			logger.error(`Database doesn't have Directus tables installed.`);
+			process.exit(1);
+		}
+	} else {
+		logger.warn('SERVERLESS ON');
 	}
 
 	if ((await validateMigrations()) === false) {
@@ -166,7 +170,8 @@ export default async function createApp(): Promise<express.Application> {
 	app.use(expressLogger);
 
 	app.use((_req, res, next) => {
-		res.setHeader('X-Powered-By', 'Directus');
+		//res.setHeader('X-Powered-By', 'Directus');
+		res.setHeader('X-Powered-By', (env['PUBLIC_POWERBY']) ? env['PUBLIC_POWERBY'] : 'Directus');
 		next();
 	});
 
@@ -249,7 +254,9 @@ export default async function createApp(): Promise<express.Application> {
 
 	app.use(authenticate);
 
-	app.use(checkIP);
+	if (!env['SERVERLESS']) {
+		app.use(checkIP);
+	}
 
 	app.use(sanitizeQuery);
 
