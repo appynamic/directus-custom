@@ -10,8 +10,10 @@
 (B|b)asemap
 (B|b)lackbox
 (B|b)ugfixes
+Butterfield
 (C|)ancelling
 (C|c)ancelled
+(C|c)hangesets?
 (C|c)harset
 (C|c)heckboxes
 (C|c)loudinary
@@ -28,6 +30,7 @@
 (D|d)ropdowns
 (DN|dn)
 (E|e)ntrypoints?
+(F|f)avicon
 (F|f)ilesystem
 (F|f)ormatter
 (F|f)rontend
@@ -126,9 +129,6 @@ Cardgroup
 cardinality
 CDNs?
 changelogs
-changeset
-changesets
-Changesets
 CLA
 CLI
 CloudFront
@@ -317,6 +317,7 @@ Pinia-based
 pino
 Pino
 Plesk
+PM2
 PNG
 pnpm
 PokéAPI
@@ -369,6 +370,7 @@ SEO
 SES
 sexualized
 SFC
+SIGKILL
 siloed
 slugification
 slugify
