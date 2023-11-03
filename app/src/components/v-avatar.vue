@@ -29,7 +29,7 @@ const sizeClass = useSizeClass(props);
 
 <style>
 body {
-	--v-avatar-color: var(--background-normal);
+	--v-avatar-color: var(--theme--background);
 	--v-avatar-size: 48px;
 }
 </style>
@@ -47,7 +47,7 @@ body {
 	white-space: nowrap;
 	text-overflow: ellipsis;
 	background-color: var(--v-avatar-color);
-	border-radius: var(--border-radius);
+	border-radius: var(--theme--border-radius);
 }
 
 .tile {

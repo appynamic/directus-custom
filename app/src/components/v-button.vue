@@ -187,7 +187,7 @@ async function onClick(event: MouseEvent) {
 	--v-button-background-color: var(--theme--primary);
 	--v-button-background-color-hover: var(--theme--primary-accent);
 	--v-button-background-color-active: var(--theme--primary);
-	--v-button-background-color-disabled: var(--background-normal);
+	--v-button-background-color-disabled: var(--theme--background);
 	--v-button-font-size: 16px;
 	--v-button-font-weight: 600;
 	--v-button-line-height: 22px;
@@ -230,15 +230,15 @@ async function onClick(event: MouseEvent) {
 	--v-button-color: var(--theme--foreground);
 	--v-button-color-hover: var(--theme--foreground);
 	--v-button-color-active: var(--theme--foreground);
-	--v-button-background-color: var(--border-subdued);
-	--v-button-background-color-hover: var(--background-normal-alt);
-	--v-button-background-color-active: var(--background-normal-alt);
+	--v-button-background-color: var(--theme--border-color-subdued);
+	--v-button-background-color-hover: var(--theme--background-accent);
+	--v-button-background-color-active: var(--theme--background-accent);
 }
 
 .secondary.rounded {
-	--v-button-background-color: var(--background-normal);
-	--v-button-background-color-active: var(--background-normal);
-	--v-button-background-color-hover: var(--background-normal-alt);
+	--v-button-background-color: var(--theme--background);
+	--v-button-background-color-active: var(--theme--background);
+	--v-button-background-color-hover: var(--theme--background-accent);
 }
 
 .warning.rounded {
@@ -279,8 +279,8 @@ async function onClick(event: MouseEvent) {
 	line-height: var(--v-button-line-height);
 	text-decoration: none;
 	background-color: var(--v-button-background-color);
-	border: var(--border-width) solid var(--v-button-background-color);
-	border-radius: var(--border-radius);
+	border: var(--theme--border-width) solid var(--v-button-background-color);
+	border-radius: var(--theme--border-radius);
 	cursor: pointer;
 	transition: var(--fast) var(--transition);
 	transition-property: background-color border;
@@ -312,7 +312,7 @@ async function onClick(event: MouseEvent) {
 .button:disabled {
 	color: var(--v-button-color-disabled);
 	background-color: var(--v-button-background-color-disabled);
-	border: var(--border-width) solid var(--v-button-background-color-disabled);
+	border: var(--theme--border-width) solid var(--v-button-background-color-disabled);
 	cursor: not-allowed;
 }
 
@@ -351,7 +351,6 @@ async function onClick(event: MouseEvent) {
 	--v-button-font-size: 12px;
 	--v-button-font-weight: 600;
 	--v-button-min-width: 60px;
-	--border-radius: 4px;
 
 	padding: 0 12px;
 }

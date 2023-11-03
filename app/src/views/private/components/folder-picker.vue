@@ -143,8 +143,8 @@ function parseFolder(id: string) {
 
 <style lang="scss" scoped>
 :global(body) {
-	--folder-picker-background-color: var(--background-normal);
-	--folder-picker-color: var(--background-normal-alt);
+	--folder-picker-background-color: var(--theme--background);
+	--folder-picker-color: var(--theme--background-accent);
 }
 
 .folder-picker {
@@ -153,7 +153,7 @@ function parseFolder(id: string) {
 
 	padding: 12px;
 	background-color: var(--folder-picker-background-color);
-	border-radius: var(--border-radius);
+	border-radius: var(--theme--border-radius);
 	max-height: calc(var(--input-height-tall) * 2);
 	overflow: auto;
 }

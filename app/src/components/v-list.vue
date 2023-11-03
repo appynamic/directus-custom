@@ -57,7 +57,7 @@ useGroupableParent(
 <style scoped>
 :global(body) {
 	--v-list-padding: 4px 0;
-	--v-list-border-radius: var(--border-radius);
+	--v-list-border-radius: var(--theme--border-radius);
 	--v-list-max-height: none;
 	--v-list-max-width: none;
 	--v-list-min-width: 220px;
@@ -66,8 +66,8 @@ useGroupableParent(
 	--v-list-color-hover: var(--theme--foreground-accent);
 	--v-list-color-active: var(--theme--foreground-accent);
 	--v-list-background-color: transparent;
-	--v-list-background-color-hover: var(--background-normal);
-	--v-list-background-color-active: var(--background-normal);
+	--v-list-background-color-hover: var(--theme--background);
+	--v-list-background-color-active: var(--theme--background);
 }
 
 .v-list {

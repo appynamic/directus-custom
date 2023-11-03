@@ -88,7 +88,7 @@ function onInput(event: Event) {
 
 <style>
 body {
-	--v-slider-color: var(--border-normal);
+	--v-slider-color: var(--theme--form--field--input--border-color);
 	--v-slider-thumb-color: var(--theme--primary);
 	--v-slider-fill-color: var(--theme--primary);
 }
@@ -121,7 +121,7 @@ body {
 			width: 100%;
 			height: 4px;
 			padding: 8px 0;
-			background-color: var(--theme--background);
+			background-color: var(--theme--background-page);
 			background-image: var(--v-slider-track-background-image);
 			border-radius: 10px;
 			cursor: pointer;
@@ -149,7 +149,7 @@ body {
 				width: 8px;
 				height: 8px;
 				margin-top: -2px;
-				background: var(--theme--background);
+				background: var(--theme--background-page);
 				border: none;
 				border-radius: 50%;
 				box-shadow: none;
@@ -232,7 +232,7 @@ body {
 			color: var(--foreground-inverted);
 			font-weight: 600;
 			background-color: var(--theme--primary);
-			border-radius: var(--border-radius);
+			border-radius: var(--theme--border-radius);
 			transform: translateX(-50%);
 			opacity: 0;
 			transition: opacity var(--fast) var(--transition);

@@ -82,7 +82,7 @@ function onCloseClick(event: MouseEvent) {
 <style>
 body {
 	--v-chip-color: var(--theme--foreground);
-	--v-chip-background-color: var(--background-normal-alt);
+	--v-chip-background-color: var(--theme--background);
 	--v-chip-color-hover: var(--white);
 	--v-chip-background-color-hover: var(--theme--primary-accent);
 	--v-chip-close-color: var(--theme--danger);
@@ -101,7 +101,7 @@ body {
 	font-weight: var(--weight-normal);
 	line-height: 22px;
 	background-color: var(--v-chip-background-color);
-	border: var(--border-width) solid var(--v-chip-background-color);
+	border: var(--theme--border-width) solid var(--v-chip-background-color);
 	border-radius: 16px;
 
 	&.clickable:hover {
@@ -156,7 +156,7 @@ body {
 	}
 
 	&.label {
-		border-radius: var(--border-radius);
+		border-radius: var(--theme--border-radius);
 	}
 
 	.chip-content {
