@@ -45,6 +45,7 @@ import { getSchema } from '../utils/get-schema.js';
 import { importFileUrl } from '../utils/import-file-url.js';
 import { JobQueue } from '../utils/job-queue.js';
 import { scheduleSynchronizedJob, validateCron } from '../utils/schedule.js';
+import { toBoolean } from '../utils/to-boolean.js';
 import { getExtensionsPath } from './lib/get-extensions-path.js';
 import { getExtensionsSettings } from './lib/get-extensions-settings.js';
 import { getExtensions } from './lib/get-extensions.js';
@@ -190,8 +191,7 @@ export class ExtensionManager {
 			this.extensions = await getExtensions();
 			this.extensionsSettings = await getExtensionsSettings(this.extensions);
 		} catch (error) {
-			logger.warn(`Couldn't load extensions`);
-			logger.warn(error);
+			this.handleExtensionError({ error, reason: `Couldn't load extensions` });
 		}
 
 		await this.registerHooks();
@@ -379,7 +379,7 @@ export class ExtensionManager {
 			replacement: path,
 		}));
 
-		const entrypoint = generateExtensionsEntrypoint(this.extensions);
+		const entrypoint = generateExtensionsEntrypoint(this.extensions, this.extensionsSettings);
 
 		try {
 			const bundle = await rollup({
@@ -400,7 +400,7 @@ export class ExtensionManager {
 			await bundle.close();
 
 			return output[0].code;
-		} catch (error: any) {
+		} catch (error) {
 			logger.warn(`Couldn't bundle App extensions`);
 			logger.warn(error);
 		}
@@ -421,9 +421,9 @@ export class ExtensionManager {
 
 		const isolate = new ivm.Isolate({
 			memoryLimit: sandboxMemory,
-			onCatastrophicError: (e) => {
+			onCatastrophicError: (error) => {
 				logger.error(`Error in API extension sandbox of ${extension.type} "${extension.name}"`);
-				logger.error(e);
+				logger.error(error);
 
 				process.abort();
 			},
@@ -497,9 +497,8 @@ export class ExtensionManager {
 						deleteFromRequireCache(hookPath);
 					});
 				}
-			} catch (error: any) {
-				logger.warn(`Couldn't register hook "${hook.name}"`);
-				logger.warn(error);
+			} catch (error) {
+				this.handleExtensionError({ error, reason: `Couldn't register hook "${hook.name}"` });
 			}
 		}
 	}
@@ -540,9 +539,8 @@ export class ExtensionManager {
 						deleteFromRequireCache(endpointPath);
 					});
 				}
-			} catch (error: any) {
-				logger.warn(`Couldn't register endpoint "${endpoint.name}"`);
-				logger.warn(error);
+			} catch (error) {
+				this.handleExtensionError({ error, reason: `Couldn't register endpoint "${endpoint.name}"` });
 			}
 		}
 	}
@@ -597,9 +595,8 @@ export class ExtensionManager {
 						deleteFromRequireCache(operationPath);
 					});
 				}
-			} catch (error: any) {
-				logger.warn(`Couldn't register operation "${operation.name}"`);
-				logger.warn(error);
+			} catch (error) {
+				this.handleExtensionError({ error, reason: `Couldn't register operation "${operation.name}"` });
 			}
 		}
 	}
@@ -610,6 +607,12 @@ export class ExtensionManager {
 	 */
 	private async registerBundles(): Promise<void> {
 		const bundles = this.extensions.filter((extension): extension is BundleExtension => extension.type === 'bundle');
+
+		const extensionEnabled = (extensionName: string) => {
+			const settings = this.extensionsSettings.find(({ name }) => name === extensionName);
+			if (!settings) return false;
+			return settings.enabled;
+		};
 
 		for (const bundle of bundles) {
 			try {
@@ -628,18 +631,24 @@ export class ExtensionManager {
 				const unregisterFunctions: PromiseCallback[] = [];
 
 				for (const { config, name } of configs.hooks) {
+					if (!extensionEnabled(`${bundle.name}/${name}`)) continue;
+
 					const unregisters = this.registerHook(config, name);
 
 					unregisterFunctions.push(...unregisters);
 				}
 
 				for (const { config, name } of configs.endpoints) {
+					if (!extensionEnabled(`${bundle.name}/${name}`)) continue;
+
 					const unregister = this.registerEndpoint(config, name);
 
 					unregisterFunctions.push(unregister);
 				}
 
-				for (const { config } of configs.operations) {
+				for (const { config, name } of configs.operations) {
+					if (!extensionEnabled(`${bundle.name}/${name}`)) continue;
+
 					const unregister = this.registerOperation(config);
 
 					unregisterFunctions.push(unregister);
@@ -650,9 +659,8 @@ export class ExtensionManager {
 
 					deleteFromRequireCache(bundlePath);
 				});
-			} catch (error: any) {
-				logger.warn(`Couldn't register bundle "${bundle.name}"`);
-				logger.warn(error);
+			} catch (error) {
+				this.handleExtensionError({ error, reason: `Couldn't register bundle "${bundle.name}"` });
 			}
 		}
 	}
@@ -693,7 +701,7 @@ export class ExtensionManager {
 						if (this.options.schedule) {
 							try {
 								await handler();
-							} catch (error: any) {
+							} catch (error) {
 								logger.error(error);
 							}
 						}
@@ -705,7 +713,7 @@ export class ExtensionManager {
 						await job.stop();
 					});
 				} else {
-					logger.warn(`Couldn't register cron hook. Provided cron is invalid: ${cron}`);
+					this.handleExtensionError({ reason: `Couldn't register cron hook. Provided cron is invalid: ${cron}` });
 				}
 			},
 			embed: (position: 'head' | 'body', code: string | EmbedHandler) => {
@@ -730,7 +738,7 @@ export class ExtensionManager {
 						});
 					}
 				} else {
-					logger.warn(`Couldn't register embed hook. Provided code is empty!`);
+					this.handleExtensionError({ reason: `Couldn't register embed hook. Provided code is empty!` });
 				}
 			},
 		};
@@ -812,5 +820,21 @@ export class ExtensionManager {
 		const unregisterFunctions = Array.from(this.unregisterFunctionMap.values());
 
 		await Promise.all(unregisterFunctions.map((fn) => fn()));
+	}
+
+	/**
+	 * If extensions must load successfully, any errors will cause the process to exit.
+	 * Otherwise, the error will only be logged as a warning.
+	 */
+	private handleExtensionError({ error, reason }: { error?: unknown; reason: string }): void {
+		if (toBoolean(env['EXTENSIONS_MUST_LOAD'])) {
+			logger.error('EXTENSION_MUST_LOAD is enabled and an extension failed to load.');
+			logger.error(reason);
+			if (error) logger.error(error);
+			process.exit(1);
+		} else {
+			logger.warn(reason);
+			if (error) logger.warn(error);
+		}
 	}
 }

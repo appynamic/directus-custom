@@ -167,6 +167,7 @@ const allowedEnvironmentVars = [
 	'PACKAGE_FILE_LOCATION',
 	'EXTENSIONS_LOCATION',
 	'EXTENSIONS_PATH',
+	'EXTENSIONS_MUST_LOAD',
 	'EXTENSIONS_AUTO_RELOAD',
 	'EXTENSIONS_CACHE_TTL',
 	'EXTENSIONS_SANDBOX_MEMORY',
@@ -203,6 +204,9 @@ const allowedEnvironmentVars = [
 	'ADMIN_PASSWORD',
 	// telemetry
 	'TELEMETRY',
+	'TELEMETRY_URL',
+	'TELEMETRY_AUTHORIZATION',
+
 	// limits & optimization
 	'RELATIONAL_BATCH_SIZE',
 	'EXPORT_BATCH_SIZE',
@@ -282,6 +286,7 @@ export const defaults: Record<string, any> = {
 
 	PACKAGE_FILE_LOCATION: '.',
 	EXTENSIONS_PATH: './extensions',
+	EXTENSIONS_MUST_LOAD: false,
 	EXTENSIONS_AUTO_RELOAD: false,
 	EXTENSIONS_SANDBOX_MEMORY: 100,
 	EXTENSIONS_SANDBOX_TIMEOUT: 1000,
@@ -293,6 +298,7 @@ export const defaults: Record<string, any> = {
 	EMAIL_SENDMAIL_PATH: '/usr/sbin/sendmail',
 
 	TELEMETRY: true,
+	TELEMETRY_URL: 'https://telemetry.directus.io',
 
 	ASSETS_CACHE_TTL: '30d',
 	ASSETS_TRANSFORM_MAX_CONCURRENT: 25,
@@ -386,6 +392,8 @@ process.env = env;
 env = processValues(env);
 
 export default env;
+
+export const useEnv = () => env;
 
 /**
  * When changes have been made during runtime, like in the CLI, we can refresh the env object with

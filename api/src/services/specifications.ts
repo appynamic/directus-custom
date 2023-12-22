@@ -1,6 +1,7 @@
 import formatTitle from '@directus/format-title';
 import { spec } from '@directus/specs';
 import type { Accountability, FieldOverview, Permission, SchemaOverview, Type } from '@directus/types';
+import { version } from 'directus/version';
 import type { Knex } from 'knex';
 import { cloneDeep, mergeWith } from 'lodash-es';
 import type {
@@ -16,9 +17,8 @@ import getDatabase from '../database/index.js';
 import env from '../env.js';
 import type { AbstractServiceOptions } from '../types/index.js';
 import { getRelationType } from '../utils/get-relation-type.js';
-import { version } from '../utils/package.js';
-import { GraphQLService } from './graphql/index.js';
 import { reduceSchema } from '../utils/reduce-schema.js';
+import { GraphQLService } from './graphql/index.js';
 
 export class SpecificationService {
 	accountability: Accountability | null;
@@ -34,8 +34,7 @@ export class SpecificationService {
 		this.schema = schema;
 
 		this.oas = new OASSpecsService({ knex, schema, accountability });
-
-		this.graphql = new GraphQLSpecsService({ knex, schema });
+		this.graphql = new GraphQLSpecsService({ knex, schema, accountability });
 	}
 }
 
