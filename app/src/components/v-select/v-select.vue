@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useCustomSelection, useCustomSelectionMultiple } from '@directus/composables';
 import { Placement } from '@popperjs/core';
-import { debounce, get } from 'lodash';
+import { debounce, get, isArray } from 'lodash';
 import { computed, Ref, ref, toRefs, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import SelectListItemGroup from './select-list-item-group.vue';
@@ -250,10 +250,10 @@ function useDisplayValue() {
 			<div
 				v-if="inline"
 				class="inline-display"
-				:class="{ placeholder: !displayValue, label, active, disabled }"
+				:class="{ placeholder: !displayValue.text, label, active, disabled }"
 				@click="toggle"
 			>
-				<slot name="preview">{{ displayValue || placeholder }}</slot>
+				<slot name="preview">{{ displayValue.text || placeholder }}</slot>
 				<v-icon name="expand_more" :class="{ active }" />
 			</div>
 			<slot v-else name="preview">
@@ -343,7 +343,11 @@ function useDisplayValue() {
 				<v-list-item
 					v-for="otherVal in otherValues"
 					:key="otherVal.key"
-					:active="((modelValue as string | string[]) || []).includes(otherVal.value)"
+					:active="
+						(modelValue && (typeof modelValue === 'string' || isArray(modelValue)) ? modelValue : []).includes(
+							otherVal.value,
+						)
+					"
 					@click.stop
 				>
 					<v-list-item-icon>

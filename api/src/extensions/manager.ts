@@ -1,4 +1,5 @@
 import { JAVASCRIPT_FILE_EXTS } from '@directus/constants';
+import { useEnv } from '@directus/env';
 import type {
 	ApiExtension,
 	BundleExtension,
@@ -19,25 +20,25 @@ import type {
 	PromiseCallback,
 	ScheduleHandler,
 } from '@directus/types';
-import { isIn, isTypeIn, pluralize } from '@directus/utils';
-import { pathToRelativeUrl } from '@directus/utils/node';
+import { isIn, isTypeIn, pluralize, toBoolean } from '@directus/utils';
+import { getNodeEnv } from '@directus/utils/node';
 import aliasDefault from '@rollup/plugin-alias';
 import nodeResolveDefault from '@rollup/plugin-node-resolve';
 import virtualDefault from '@rollup/plugin-virtual';
 import chokidar, { FSWatcher } from 'chokidar';
 import express, { Router } from 'express';
 import ivm from 'isolated-vm';
-import { clone } from 'lodash-es';
+import { clone, debounce } from 'lodash-es';
 import { readFile, readdir } from 'node:fs/promises';
+import os from 'node:os';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import path from 'path';
 import { rollup } from 'rollup';
 import getDatabase from '../database/index.js';
 import emitter, { Emitter } from '../emitter.js';
-import env from '../env.js';
 import { getFlowManager } from '../flows.js';
-import logger from '../logger.js';
+import { useLogger } from '../logger.js';
 import * as services from '../services/index.js';
 import { deleteFromRequireCache } from '../utils/delete-from-require-cache.js';
 import getModuleDefault from '../utils/get-module-default.js';
@@ -45,7 +46,6 @@ import { getSchema } from '../utils/get-schema.js';
 import { importFileUrl } from '../utils/import-file-url.js';
 import { JobQueue } from '../utils/job-queue.js';
 import { scheduleSynchronizedJob, validateCron } from '../utils/schedule.js';
-import { toBoolean } from '../utils/to-boolean.js';
 import { getExtensionsPath } from './lib/get-extensions-path.js';
 import { getExtensionsSettings } from './lib/get-extensions-settings.js';
 import { getExtensions } from './lib/get-extensions.js';
@@ -67,9 +67,11 @@ const nodeResolve = nodeResolveDefault as unknown as typeof nodeResolveDefault.d
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+const env = useEnv();
+
 const defaultOptions: ExtensionManagerOptions = {
 	schedule: true,
-	watch: env['EXTENSIONS_AUTO_RELOAD'] && env['NODE_ENV'] !== 'development',
+	watch: (env['EXTENSIONS_AUTO_RELOAD'] as boolean) && getNodeEnv() !== 'development',
 };
 
 export class ExtensionManager {
@@ -149,6 +151,8 @@ export class ExtensionManager {
 	 * @param {boolean} options.watch - Whether or not to watch the local extensions folder for changes
 	 */
 	public async initialize(options: Partial<ExtensionManagerOptions> = {}): Promise<void> {
+		const logger = useLogger();
+
 		this.options = {
 			...defaultOptions,
 			...options,
@@ -179,6 +183,8 @@ export class ExtensionManager {
 	 * Load all extensions from disk and register them in their respective places
 	 */
 	private async load(): Promise<void> {
+		const logger = useLogger();
+
 		try {
 			await syncExtensions();
 		} catch (error) {
@@ -223,14 +229,21 @@ export class ExtensionManager {
 	 * Reload all the extensions. Will unload if extensions have already been loaded
 	 */
 	public reload(): void {
+		if (this.reloadQueue.size > 0) {
+			// The pending job in the queue will already handle the additional changes
+			return;
+		}
+
+		const logger = useLogger();
+
 		this.reloadQueue.enqueue(async () => {
 			if (this.isLoaded) {
-				logger.info('Reloading extensions');
-
 				const prevExtensions = clone(this.extensions);
 
 				await this.unload();
 				await this.load();
+
+				logger.info('Extensions reloaded');
 
 				const added = this.extensions.filter(
 					(extension) => !prevExtensions.some((prevExtension) => extension.path === prevExtension.path),
@@ -300,34 +313,49 @@ export class ExtensionManager {
 	 * Start the chokidar watcher for extensions on the local filesystem
 	 */
 	private initializeWatcher(): void {
+		const logger = useLogger();
+
 		logger.info('Watching extensions for changes...');
 
-		const extensionDirUrl = pathToRelativeUrl(getExtensionsPath());
+		const extensionsDir = path.resolve(getExtensionsPath());
 
-		const localExtensionUrls = NESTED_EXTENSION_TYPES.flatMap((type) => {
-			const typeDir = path.posix.join(extensionDirUrl, pluralize(type));
+		const rootPackageJson = path.resolve(env['PACKAGE_FILE_LOCATION'] as string, 'package.json');
+		const localExtensions = path.join(extensionsDir, '*', 'package.json');
+
+		const nestedExtensions = NESTED_EXTENSION_TYPES.flatMap((type) => {
+			const typeDir = path.join(extensionsDir, pluralize(type));
 
 			if (isIn(type, HYBRID_EXTENSION_TYPES)) {
 				return [
-					path.posix.join(typeDir, '*', `app.{${JAVASCRIPT_FILE_EXTS.join()}}`),
-					path.posix.join(typeDir, '*', `api.{${JAVASCRIPT_FILE_EXTS.join()}}`),
+					path.join(typeDir, '*', `app.{${JAVASCRIPT_FILE_EXTS.join()}}`),
+					path.join(typeDir, '*', `api.{${JAVASCRIPT_FILE_EXTS.join()}}`),
 				];
 			} else {
-				return path.posix.join(typeDir, '*', `index.{${JAVASCRIPT_FILE_EXTS.join()}}`);
+				return path.join(typeDir, '*', `index.{${JAVASCRIPT_FILE_EXTS.join()}}`);
 			}
 		});
 
-		this.watcher = chokidar.watch(
-			[path.resolve('package.json'), path.posix.join(extensionDirUrl, '*', 'package.json'), ...localExtensionUrls],
-			{
-				ignoreInitial: true,
-			},
-		);
+		this.watcher = chokidar.watch([rootPackageJson, localExtensions, ...nestedExtensions], {
+			ignoreInitial: true,
+			// dotdirs are watched by default and frequently found in 'node_modules'
+			ignored: `${extensionsDir}/**/node_modules/**`,
+			// on macOS dotdirs in linked extensions are watched too
+			followSymlinks: os.platform() === 'darwin' ? false : true,
+		});
 
 		this.watcher
-			.on('add', () => this.reload())
-			.on('change', () => this.reload())
-			.on('unlink', () => this.reload());
+			.on(
+				'add',
+				debounce(() => this.reload(), 500),
+			)
+			.on(
+				'change',
+				debounce(() => this.reload(), 650),
+			)
+			.on(
+				'unlink',
+				debounce(() => this.reload(), 2000),
+			);
 	}
 
 	/**
@@ -347,9 +375,15 @@ export class ExtensionManager {
 	 */
 	private updateWatchedExtensions(added: Extension[], removed: Extension[] = []): void {
 		if (this.watcher) {
+			const extensionDir = path.resolve(getExtensionsPath());
+
+			const nestedExtensionDirs = NESTED_EXTENSION_TYPES.map((type) => {
+				return path.join(extensionDir, pluralize(type));
+			});
+
 			const toPackageExtensionPaths = (extensions: Extension[]) =>
 				extensions
-					.filter((extension) => !extension.local || extension.type === 'bundle')
+					.filter((extension) => !nestedExtensionDirs.some((path) => extension.path.startsWith(path)))
 					.flatMap((extension) =>
 						isTypeIn(extension, HYBRID_EXTENSION_TYPES) || extension.type === 'bundle'
 							? [
@@ -372,6 +406,8 @@ export class ExtensionManager {
 	 * run.
 	 */
 	private async generateExtensionBundle(): Promise<string | null> {
+		const logger = useLogger();
+
 		const sharedDepsMapping = await getSharedDepsMapping(APP_SHARED_DEPS);
 
 		const internalImports = Object.entries(sharedDepsMapping).map(([name, path]) => ({
@@ -409,6 +445,8 @@ export class ExtensionManager {
 	}
 
 	private async registerSandboxedApiExtension(extension: ApiExtension | HybridExtension) {
+		const logger = useLogger();
+
 		const sandboxMemory = Number(env['EXTENSIONS_SANDBOX_MEMORY']);
 		const sandboxTimeout = Number(env['EXTENSIONS_SANDBOX_TIMEOUT']);
 
@@ -669,6 +707,8 @@ export class ExtensionManager {
 	 * Register a single hook
 	 */
 	private registerHook(hookRegistrationCallback: HookConfig, name: string): PromiseCallback[] {
+		const logger = useLogger();
+
 		let scheduleIndex = 0;
 
 		const unregisterFunctions: PromiseCallback[] = [];
@@ -759,6 +799,8 @@ export class ExtensionManager {
 	 * Register an individual endpoint
 	 */
 	private registerEndpoint(config: EndpointConfig, name: string): PromiseCallback {
+		const logger = useLogger();
+
 		const endpointRegistrationCallback = typeof config === 'function' ? config : config.handler;
 		const nameWithoutType = name.includes(':') ? name.split(':')[0] : name;
 		const routeName = typeof config === 'function' ? nameWithoutType : config.id;
@@ -827,6 +869,8 @@ export class ExtensionManager {
 	 * Otherwise, the error will only be logged as a warning.
 	 */
 	private handleExtensionError({ error, reason }: { error?: unknown; reason: string }): void {
+		const logger = useLogger();
+
 		if (toBoolean(env['EXTENSIONS_MUST_LOAD'])) {
 			logger.error('EXTENSION_MUST_LOAD is enabled and an extension failed to load.');
 			logger.error(reason);

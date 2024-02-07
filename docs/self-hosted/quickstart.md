@@ -29,7 +29,8 @@ As soon as there are new releases of Directus, we publish them on
 
 ## Create a Docker Compose File
 
-Create a new empty folder on your Desktop called `directus`.
+Create a new empty folder on your Desktop called `directus`. Within this new folder, create the three empty folders
+`database`, `uploads`, and `extensions`.
 
 Open a text editor such as Visual Studio Code, nano, Vim, TextEdit, or Notepad.
 
@@ -53,7 +54,7 @@ services:
       ADMIN_PASSWORD: "d1r3ctu5"
       DB_CLIENT: "sqlite3"
       DB_FILENAME: "/directus/database/data.db"
-      WEBSOCKETS_ENABLED: true
+      WEBSOCKETS_ENABLED: "true"
 ```
 
 Save the file. Let's step through it:
