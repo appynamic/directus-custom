@@ -173,7 +173,7 @@ export default async function createApp(): Promise<express.Application> {
 
 	app.use((_req, res, next) => {
 		//res.setHeader('X-Powered-By', 'Directus');
-		res.setHeader('X-Powered-By', (env['PUBLIC_POWERBY']) ? env['PUBLIC_POWERBY'] : 'Directus');
+		res.setHeader('X-Powered-By', (env['PUBLIC_POWERBY']) ? env['PUBLIC_POWERBY'] as string : 'Directus'); // added as string for 10.9.0		
 		next();
 	});
 
