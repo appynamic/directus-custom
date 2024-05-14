@@ -81,36 +81,28 @@ export default async function createApp(): Promise<express.Application> {
 	}
 
 	if (!env['SERVERLESS']) {
-		await validateStorage();
-
 		await validateDatabaseConnection();
-		await validateDatabaseExtensions();
-	await validateDatabaseConnection();
 
 		if ((await isInstalled()) === false) {
 			logger.error(`Database doesn't have Directus tables installed.`);
 			process.exit(1);
 		}
+
+		if ((await validateMigrations()) === false) {
+			logger.warn(`Database migrations have not all been run`);
+		}
+
+		if (!env['SECRET']) {
+			logger.warn(
+				`"SECRET" env variable is missing. Using a random value instead. Tokens will not persist between restarts. This is not appropriate for production usage.`,
+			);
+		}
+
+		await validateDatabaseExtensions();
+		await validateStorage();
 	} else {
 		logger.warn('SERVERLESS ON');
 	}
-
-	if ((await validateMigrations()) === false) {
-		logger.warn(`Database migrations have not all been run`);
-	}
-
-	if (!env['SECRET']) {
-		logger.warn(
-			`"SECRET" env variable is missing. Using a random value instead. Tokens will not persist between restarts. This is not appropriate for production usage.`,
-		);
-	}
-
-	if (!new Url(env['PUBLIC_URL'] as string).isAbsolute()) {
-		logger.warn('"PUBLIC_URL" should be a full URL');
-	}
-
-	await validateDatabaseExtensions();
-	await validateStorage();
 
 	await registerAuthProviders();
 
