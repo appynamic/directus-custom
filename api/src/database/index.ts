@@ -21,6 +21,19 @@ let database: Knex | null = null;
 let inspector: SchemaInspector | null = null;
 let databaseVersion: string | null = null;
 
+//let platformDatabases: { [platform: string]: null | Knex } | {};
+//let platformDatabases: any; //{ [platform:string]: Knex };
+//let inspector: ReturnType<typeof SchemaInspector> | null = null;
+
+//type MyGroupType = {
+//    [key:string]: Knex | null // = null
+//}
+//let platformDatabases: Record<string, Knex | null> = {};
+let platformDatabases: Record<string, any> = {};
+//let platformDatabases: MyGroupType = {}; // older
+//let platformDatabases:  [platform:string]: Knex }; [key:string]: MyType;
+
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export default getDatabase;
@@ -155,7 +168,9 @@ export function getDatabase(): Knex {
 	}
 
 	database = knex.default(knexConfig);
-	validateDatabaseCharset(database);
+	if (!env['SERVERLESS']) {
+		validateDatabaseCharset(database);
+	}
 
 	const times: Record<string, number> = {};
 
@@ -357,4 +372,184 @@ async function validateDatabaseCharset(database?: Knex): Promise<void> {
 	}
 
 	return;
+}
+
+// wc - get client database with platform as origin as a code like localhost or as url like http://localhost:3055
+export function getPlatformDatabase(platformOrigin: string | null): Knex {
+	// we use platform as req.accountability?.origin (http://localhost:3055 or https://api-xxxx.com)
+	if (platformOrigin === null) platformOrigin = '';
+	//platform = platform.replace(/\./g, '');
+	let platform = platformOrigin; // platform hostname
+
+	if (platform == '') return getDatabase(); // redirect to default db
+
+	const env = useEnv();
+	const logger = useLogger();
+
+	if (platform != '' && platform.indexOf('http') >= 0) {
+		// @todo use : import { Url } from './utils/url.js';
+		const platformURL = new URL(platform);
+		platform = platformURL.hostname;
+		logger.warn('__platformURL__ platform='+platform, platformURL);
+	}
+
+	if (platform != '') platform = platform.replace(/\./g, ''); // origin: test.local => testlocal, boutique.rclens.fr => boutiquerclensfr
+	logger.warn('detect platform='+platform);
+
+	//if (platform == '' || platform.indexOf('localhost') > 0) return getDatabase();
+
+	if (platform != '' && platformDatabases && Object.keys(platformDatabases).length > 0 && platformDatabases[platform]) {
+		return platformDatabases[platform];
+	}
+
+	//if (platform == env['HOST']) return getDatabase(); // redirect to default db
+
+	let platform_dynamic_env_db: string = 'PLATFORM_'+platform.toLocaleUpperCase()+'_DB_'; // test.local => PLATFORM_TESTLOCAL_DB_CLIENT
+	logger.warn('wc getPlatformDatabase - platform_dynamic_env_db='+platform_dynamic_env_db);
+
+	const {
+		client,
+		version,
+		searchPath,
+		connectionString,
+		pool: poolConfig = {},
+		...connectionConfig
+	} = getConfigFromEnv(platform_dynamic_env_db, [platform_dynamic_env_db+'EXCLUDE_TABLES']); // DB_ / DB_EXCLUDE_TABLES
+
+	logger.warn('wc getPlatformDatabase client='+client, version, searchPath, connectionString, connectionConfig);
+
+	const requiredEnvVars = [platform_dynamic_env_db+'CLIENT'];
+
+	switch (client) {
+
+		case 'sqlite3':
+			requiredEnvVars.push(platform_dynamic_env_db+'FILENAME');
+			break;
+
+		case 'oracledb':
+			if (!env['DB_CONNECT_STRING']) {
+				requiredEnvVars.push(platform_dynamic_env_db+'HOST', platform_dynamic_env_db+'PORT', platform_dynamic_env_db+'DATABASE', platform_dynamic_env_db+'USER', platform_dynamic_env_db+'PASSWORD');
+			} else {
+				requiredEnvVars.push(platform_dynamic_env_db+'USER', platform_dynamic_env_db+'PASSWORD', platform_dynamic_env_db+'CONNECT_STRING');
+			}
+
+			break;
+
+		case 'cockroachdb':
+		case 'pg':
+			if (!connectionString) {
+				requiredEnvVars.push(platform_dynamic_env_db+'HOST', platform_dynamic_env_db+'PORT', platform_dynamic_env_db+'DATABASE', platform_dynamic_env_db+'USER');
+			} else {
+				requiredEnvVars.push(platform_dynamic_env_db+'CONNECTION_STRING');
+			}
+
+			break;
+		case 'mysql':
+			if (!env[platform_dynamic_env_db+'SOCKET_PATH']) {
+				requiredEnvVars.push(platform_dynamic_env_db+'HOST', platform_dynamic_env_db+'PORT', platform_dynamic_env_db+'DATABASE', platform_dynamic_env_db+'USER', platform_dynamic_env_db+'PASSWORD');
+			} else {
+				requiredEnvVars.push(platform_dynamic_env_db+'DATABASE', platform_dynamic_env_db+'USER', platform_dynamic_env_db+'PASSWORD', platform_dynamic_env_db+'SOCKET_PATH');
+			}
+
+			break;
+		case 'mssql':
+			if (!env[platform_dynamic_env_db+'TYPE'] || env[platform_dynamic_env_db+'TYPE'] === 'default') {
+				requiredEnvVars.push(platform_dynamic_env_db+'HOST', platform_dynamic_env_db+'PORT', platform_dynamic_env_db+'DATABASE', platform_dynamic_env_db+'USER', platform_dynamic_env_db+'PASSWORD');
+			}
+
+			break;
+		default:
+			requiredEnvVars.push(platform_dynamic_env_db+'HOST', platform_dynamic_env_db+'PORT', platform_dynamic_env_db+'DATABASE', platform_dynamic_env_db+'USER', platform_dynamic_env_db+'PASSWORD');
+	}
+
+	validateEnv(requiredEnvVars);
+
+	const knexConfig: Knex.Config = {
+		client,
+		version,
+		searchPath,
+		connection: connectionString || connectionConfig,
+		log: {
+			warn: (msg) => {
+				// Ignore warnings about returning not being supported in some DBs
+				if (msg.startsWith('.returning()')) return;
+				if (msg.endsWith('does not currently support RETURNING clause')) return;
+
+				// Ignore warning about MySQL not supporting TRX for DDL
+				if (msg.startsWith('Transaction was implicitly committed, do not mix transactions and DDL with MySQL')) return;
+
+				return logger.warn(msg);
+			},
+			error: (msg) => logger.error(msg),
+			deprecate: (msg) => logger.info(msg),
+			debug: (msg) => logger.debug(msg),
+		},
+		pool: poolConfig,
+	};
+
+	if (client === 'sqlite3') {
+		knexConfig.useNullAsDefault = true;
+
+		poolConfig.afterCreate = async (conn: any, callback: any) => {
+			logger.trace('Enabling SQLite Foreign Keys support...');
+
+			const run = promisify(conn.run.bind(conn));
+			await run('PRAGMA foreign_keys = ON');
+
+			callback(null, conn);
+		};
+	}
+
+	if (client === 'cockroachdb') {
+		poolConfig.afterCreate = async (conn: any, callback: any) => {
+			logger.trace('Setting CRDB serial_normalization and default_int_size');
+			const run = promisify(conn.query.bind(conn));
+
+			await run('SET serial_normalization = "sql_sequence"');
+			await run('SET default_int_size = 4');
+
+			callback(null, conn);
+		};
+	}
+
+	if (client === 'mysql') {
+		poolConfig.afterCreate = async (conn: any, callback: any) => {
+			logger.trace('Retrieving database version');
+			const run = promisify(conn.query.bind(conn));
+
+			const version = await run('SELECT @@version;');
+			databaseVersion = version[0]['@@version'];
+
+			callback(null, conn);
+		};
+	}
+
+	if (client === 'mssql') {
+		// This brings MS SQL in line with the other DB vendors. We shouldn't do any automatic
+		// timezone conversion on the database level, especially not when other database vendors don't
+		// act the same
+		merge(knexConfig, { connection: { options: { useUTC: false } } });
+	}
+
+	//database = knex.default(knexConfig);
+	platformDatabases[platform] = knex.default(knexConfig);
+	//console.warn(platformDatabases[platform]);
+
+	if (!env['SERVERLESS']) {
+		validateDatabaseCharset(platformDatabases[platform]);
+	}
+
+	const times: Record<string, number> = {};
+
+	platformDatabases[platform]
+		.on('query', (queryInfo: any) => {
+			times[queryInfo.__knexUid] = performance.now();
+		})
+		.on('query-response', (_response: any, queryInfo: any) => {
+			const delta = performance.now() - times[queryInfo.__knexUid]!;
+			logger.trace(`TRACE platform [${delta.toFixed(3)}ms] ${queryInfo.sql} [${queryInfo.bindings.join(', ')}]`);
+			delete times[queryInfo.__knexUid];
+		});
+
+	return platformDatabases[platform];
 }

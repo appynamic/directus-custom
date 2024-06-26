@@ -13,6 +13,7 @@ export function getCacheKey(req: Request): string {
 		user: req.accountability?.user || null,
 		path,
 		query: isGraphQl ? getGraphqlQueryAndVariables(req) : req.sanitizedQuery,
+		platform: req.accountability?.origin || null, // nick
 	};
 
 	const key = hash(info);

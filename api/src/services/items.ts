@@ -16,6 +16,7 @@ import { assign, clone, cloneDeep, omit, pick, without } from 'lodash-es';
 import { getCache } from '../cache.js';
 import { translateDatabaseError } from '../database/errors/translate.js';
 import { getHelpers } from '../database/helpers/index.js';
+import { getPlatformDatabase } from '../database/index.js';
 import getDatabase from '../database/index.js';
 import runAST from '../database/run-ast.js';
 import emitter from '../emitter.js';
@@ -26,6 +27,7 @@ import { transaction } from '../utils/transaction.js';
 import { validateKeys } from '../utils/validate-keys.js';
 import { AuthorizationService } from './authorization.js';
 import { PayloadService } from './payload.js';
+//import { useLogger } from '../logger.js';
 
 const env = useEnv();
 
@@ -43,6 +45,7 @@ export type MutationTracker = {
 export class ItemsService<Item extends AnyItem = AnyItem> implements AbstractService {
 	collection: string;
 	knex: Knex;
+	//knex: Knex | null = null; // nick
 	accountability: Accountability | null;
 	eventScope: string;
 	schema: SchemaOverview;
@@ -50,8 +53,19 @@ export class ItemsService<Item extends AnyItem = AnyItem> implements AbstractSer
 
 	constructor(collection: string, options: AbstractServiceOptions) {
 		this.collection = collection;
-		this.knex = options.knex || getDatabase();
+		//this.knex = options.knex || getDatabase(); // original
+		//this.knex = null;
 		this.accountability = options.accountability || null;
+
+		if (this?.accountability?.origin) {
+			//console.log('wc ItemsService platform='+this.accountability.origin);
+			//const logger = useLogger();
+			//logger.warn(`wc ItemsService platform=${this.accountability.origin}`);
+			this.knex = options.knex || getPlatformDatabase(this.accountability.origin);
+		} else {
+			this.knex = options.knex || getDatabase();
+		}
+
 		this.eventScope = isSystemCollection(this.collection) ? this.collection.substring(9) : 'items';
 		this.schema = options.schema;
 		this.cache = getCache().cache;

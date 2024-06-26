@@ -9,6 +9,7 @@ import { mapValues } from 'lodash-es';
 import { useBus } from '../bus/index.js';
 import { getSchemaCache, setSchemaCache } from '../cache.js';
 import { ALIAS_TYPES } from '../constants.js';
+import { getPlatformDatabase } from '../database/index.js';
 import getDatabase from '../database/index.js';
 import { useLock } from '../lock/index.js';
 import { useLogger } from '../logger.js';
@@ -28,6 +29,8 @@ export async function getSchema(
 		 * Used to ensure schema snapshot/apply is not using outdated schema
 		 */
 		bypassCache?: boolean;
+		
+		origin?: string | null; // platform (nick)
 	},
 	attempt = 0,
 ): Promise<SchemaOverview> {
@@ -40,7 +43,14 @@ export async function getSchema(
 	}
 
 	if (options?.bypassCache || env['CACHE_SCHEMA'] === false) {
-		const database = options?.database || getDatabase();
+		let database;
+		if (options?.origin) {
+			console.log('wc getSchema bypassCache platform='+options.origin);
+			database = options?.database || getPlatformDatabase(options.origin);
+		} else {
+			database = options?.database || getDatabase();
+		}
+		//const database = options?.database || getDatabase();
 		const schemaInspector = createInspector(database);
 
 		return await getDatabaseSchema(database, schemaInspector);
@@ -93,8 +103,18 @@ export async function getSchema(
 		});
 	}
 
-	try {
-		const database = options?.database || getDatabase();
+	try {		
+		const database = options?.database || ((options?.origin) ? getPlatformDatabase(options.origin) : getDatabase());
+		/*
+		let database;
+		if (options?.origin) {
+			console.log('wc getSchema platform='+options.origin);
+			database = options?.database || getPlatformDatabase(options.origin);
+		} else {
+			database = options?.database || getDatabase();
+		}
+		*/
+		//const database = options?.database || getDatabase();
 		const schemaInspector = createInspector(database);
 
 		const schema = await getDatabaseSchema(database, schemaInspector);

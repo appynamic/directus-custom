@@ -8,7 +8,8 @@ export type AbstractServiceOptions = {
 };
 
 export interface AbstractService {
-	knex: Knex;
+	knex: Knex; // original
+	//knex: Knex | null; // nick
 	accountability: Accountability | null | undefined;
 
 	createOne(data: Partial<Item>): Promise<PrimaryKey>;

@@ -240,6 +240,9 @@ export const DIRECTUS_VARIABLES = [
 
 	// websockets
 	'WEBSOCKETS_.+',
+	
+	// wc platform (or put on separate file to add on getEnv() method)	
+	'PLATFORM_.+_DB_.+',
 ] as const;
 
 /**
