@@ -238,7 +238,7 @@ prefixing the value with `{type}:`. The following types are available:
 | `LOG_HTTP_IGNORE_PATHS`         | List of HTTP request paths which should not appear in the log, for example `/server/ping`.                                  | --                           |
 | `MAX_PAYLOAD_SIZE`              | Controls the maximum request body size. Accepts number of bytes, or human readable string.                                  | `1mb`                        |
 | `ROOT_REDIRECT`                 | Redirect the root of the application `/` to a specific route. Accepts a relative path, absolute URL, or `false` to disable. | `./admin`                    |
-| `SERVE_APP`                     | Whether or not to serve the Admin application                                                                               | `true`                       |
+| `SERVE_APP`                     | Whether or not to serve the Data Studio                                                                                     | `true`                       |
 | `GRAPHQL_INTROSPECTION`         | Whether or not to enable GraphQL Introspection                                                                              | `true`                       |
 | `GRAPHQL_SCHEMA_CACHE_CAPACITY` | How many user GraphQL schemas to store in memory                                                                            | `100`                        |
 | `MAX_BATCH_MUTATION`            | The maximum number of items for batch mutations when creating, updating and deleting.                                       | `Infinity`                   |
@@ -285,20 +285,20 @@ into unexpected behaviors.
 
 ## Database
 
-| Variable                   | Description                                                                                                                                        | Default Value                 |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
-| `DB_CLIENT`                | **Required**. What database client to use. One of `pg` or `postgres`, `mysql`, `oracledb`, `mssql`, `sqlite3`, `cockroachdb`.                      | --                            |
-| `DB_HOST`                  | Database host. **Required** when using `pg`, `mysql`, `oracledb`, or `mssql`.                                                                      | --                            |
-| `DB_PORT`                  | Database port. **Required** when using `pg`, `mysql`, `oracledb`, or `mssql`.                                                                      | --                            |
-| `DB_DATABASE`              | Database name. **Required** when using `pg`, `mysql`, `oracledb`, or `mssql`.                                                                      | --                            |
-| `DB_USER`                  | Database user. **Required** when using `pg`, `mysql`, `oracledb`, or `mssql`.                                                                      | --                            |
-| `DB_PASSWORD`              | Database user's password. **Required** when using `pg`, `mysql`, `oracledb`, or `mssql`.                                                           | --                            |
-| `DB_FILENAME`              | Where to read/write the SQLite database. **Required** when using `sqlite3`.                                                                        | --                            |
-| `DB_CONNECTION_STRING`     | When using `pg`, you can submit a connection string instead of individual properties. Using this will ignore any of the other connection settings. | --                            |
-| `DB_EXCLUDE_TABLES`        | CSV of tables you want Directus to ignore completely                                                                                               | `spatial_ref_sys,sysdiagrams` |
-| `DB_CHARSET`               | Charset/collation to use in the connection to MySQL/MariaDB                                                                                        | `UTF8_GENERAL_CI`             |
-| `DB_VERSION`               | Database version, in case you use the PostgreSQL adapter to connect a non-standard database. Not normally required.                                | --                            |
-| `DB_HEALTHCHECK_THRESHOLD` | Healthcheck timeout threshold in ms.                                                                                                               | `150`                         |
+| Variable                           | Description                                                                                                                                        | Default Value                 |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| `DB_CLIENT`                        | **Required**. What database client to use. One of `pg` or `postgres`, `mysql`, `oracledb`, `mssql`, `sqlite3`, `cockroachdb`.                      | --                            |
+| `DB_HOST`                          | Database host. **Required** when using `pg`, `mysql`, `oracledb`, or `mssql`.                                                                      | --                            |
+| `DB_PORT`                          | Database port. **Required** when using `pg`, `mysql`, `oracledb`, or `mssql`.                                                                      | --                            |
+| `DB_DATABASE`                      | Database name. **Required** when using `pg`, `mysql`, `oracledb`, or `mssql`.                                                                      | --                            |
+| `DB_USER`                          | Database user. **Required** when using `pg`, `mysql`, `oracledb`, or `mssql`.                                                                      | --                            |
+| `DB_PASSWORD`                      | Database user's password. **Required** when using `pg`, `mysql`, `oracledb`, or `mssql`.                                                           | --                            |
+| `DB_FILENAME`                      | Where to read/write the SQLite database. **Required** when using `sqlite3`.                                                                        | --                            |
+| `DB_CONNECTION_STRING`             | When using `pg`, you can submit a connection string instead of individual properties. Using this will ignore any of the other connection settings. | --                            |
+| `DB_EXCLUDE_TABLES`                | CSV of tables you want Directus to ignore completely                                                                                               | `spatial_ref_sys,sysdiagrams` |
+| `DB_CHARSET` / `DB_CHARSET_NUMBER` | Charset/collation to use in the connection to MySQL/MariaDB                                                                                        | `UTF8_GENERAL_CI`             |
+| `DB_VERSION`                       | Database version, in case you use the PostgreSQL adapter to connect a non-standard database. Not normally required.                                | --                            |
+| `DB_HEALTHCHECK_THRESHOLD`         | Healthcheck timeout threshold in ms.                                                                                                               | `150`                         |
 
 ::: tip Additional Database Variables
 
@@ -539,7 +539,7 @@ Instead, you can use the above `CACHE_STORE` environment variable to use `redis`
 
 By default, Directus stores all uploaded files locally on disk. However, you can also configure Directus to use S3,
 Google Cloud Storage, Azure, Cloudinary or Supabase. You can also configure _multiple_ storage adapters at the same
-time. This allows you to choose where files are being uploaded on a file-by-file basis. In the Admin App, files will
+time. This allows you to choose where files are being uploaded on a file-by-file basis. In the Data Studio, files will
 automatically be uploaded to the first configured storage location (in this case `local`). The used storage location is
 saved under `storage` in `directus_files`.
 
@@ -601,10 +601,13 @@ Based on your configured driver, you must also provide the following configurati
 | `STORAGE_<LOCATION>_SECRET`                 | User secret               | --                 |
 | `STORAGE_<LOCATION>_BUCKET`                 | S3 Bucket                 | --                 |
 | `STORAGE_<LOCATION>_REGION`                 | S3 Region                 | --                 |
-| `STORAGE_<LOCATION>_ENDPOINT`               | S3 Endpoint               | `s3.amazonaws.com` |
+| `STORAGE_<LOCATION>_ENDPOINT`<sup>[1]</sup> | S3 Endpoint               | `s3.amazonaws.com` |
 | `STORAGE_<LOCATION>_ACL`                    | S3 ACL                    | --                 |
 | `STORAGE_<LOCATION>_SERVER_SIDE_ENCRYPTION` | S3 Server Side Encryption | --                 |
 | `STORAGE_<LOCATION>_FORCE_PATH_STYLE`       | S3 Force Path Style       | false              |
+
+<sup>[1]</sup> When overriding this variable for S3, make sure to add your bucket's region in the endpoint:
+`s3.{region}.amazonaws.com`.
 
 ### Azure (`azure`)
 
@@ -687,19 +690,35 @@ purposes, collection of additional metadata must be configured:
 | `FILES_MAX_UPLOAD_SIZE`      | Maximum file upload size allowed. For example `10mb`, `1gb`, `10kb`              | --            |
 | `FILES_MIME_TYPE_ALLOW_LIST` | Allow list of mime types that are allowed to be uploaded. Supports `glob` syntax | `*/*`         |
 
+### Chunked Uploads
+
+Large files can be uploaded in chunks to improve reliability and efficiency, especially in scenarios with network
+instability or limited bandwidth. This is implemented using the [TUS protocol](https://tus.io/).
+
+| Variable                | Description                                                       | Default Value |
+| ----------------------- | ----------------------------------------------------------------- | ------------- |
+| `TUS_ENABLED`           | Whether or not to enable the chunked uploads                      | `false`       |
+| `TUS_CHUNK_SIZE`        | The size of each file chunks. For example `10mb`, `1gb`, `10kb`   | `10mb`        |
+| `TUS_UPLOAD_EXPIRATION` | The expiry duration for uncompleted files with no upload activity | `10m`         |
+| `TUS_CLEANUP_SCHEDULE`  | Cron schedule to clean up the expired uncompleted uploads         | `0 * * * *`   |
+
 ## Assets
 
 | Variable                                 | Description                                                                                                                         | Default Value |
 | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------- |
 | `ASSETS_CACHE_TTL`                       | How long assets will be cached for in the browser. Sets the `max-age` value of the `Cache-Control` header.                          | `30d`         |
 | `ASSETS_TRANSFORM_MAX_CONCURRENT`        | How many file transformations can be done simultaneously                                                                            | `25`          |
-| `ASSETS_TRANSFORM_IMAGE_MAX_DIMENSION`   | The max pixel dimensions size (width/height) that is allowed to be transformed                                                      | `6000`        |
+| `ASSETS_TRANSFORM_IMAGE_MAX_DIMENSION`   | The max pixel dimensions size (width/height) that is allowed to be transformed[^1]                                                  | `6000`        |
 | `ASSETS_TRANSFORM_TIMEOUT`               | Max time spent trying to transform an asset                                                                                         | `7500ms`      |
 | `ASSETS_TRANSFORM_MAX_OPERATIONS`        | The max number of transform operations that is allowed to be processed (excludes saved presets)                                     | `5`           |
 | `ASSETS_INVALID_IMAGE_SENSITIVITY_LEVEL` | Level of sensitivity to invalid images. See the [`sharp.failOn`](https://sharp.pixelplumbing.com/api-constructor#parameters) option | `warning`     |
 
 Image transformations can be fairly heavy on memory usage. If you're using a system with 1GB or less available memory,
 we recommend lowering the allowed concurrent transformations to prevent you from overflowing your server.
+
+[^1]:
+    The maximum value is the square root of Node's `Number.MAX_SAFE_INTEGER`, or 95,906,265 at time of writing. Be
+    advised: transforming gigantic files can hurt your server performance and cause outages.
 
 ## Authentication
 
@@ -747,6 +766,7 @@ AUTH_GITHUB_CLIENT_SECRET="34ae...f963"
 AUTH_GITHUB_AUTHORIZE_URL="https://github.com/login/oauth/authorize"
 AUTH_GITHUB_ACCESS_URL="https://github.com/login/oauth/access_token"
 AUTH_GITHUB_PROFILE_URL="https://api.github.com/user"
+AUTH_GITHUB_ALLOW_PUBLIC_REGISTRATION=true
 ```
 
 More example SSO configurations [can be found here](/self-hosted/sso-examples).
@@ -1031,6 +1051,7 @@ variables to automatically configure the first user:
 | ---------------- | ------------------------------------------------------------------------------------------------- | ------------- |
 | `ADMIN_EMAIL`    | The email address of the first user that's automatically created when using `directus bootstrap`. | --            |
 | `ADMIN_PASSWORD` | The password of the first user that's automatically created when using `directus bootstrap`.      | --            |
+| `ADMIN_TOKEN`    | The API token of the first user that's automatically created when using `directus bootstrap`.     | --            |
 
 ## Telemetry
 
@@ -1052,7 +1073,7 @@ Allows you to configure hard technical limits, to prevent abuse and optimize for
 | `RELATIONAL_BATCH_SIZE`     | How many rows are read into memory at a time when constructing nested relational datasets                                       | 25000         |
 | `EXPORT_BATCH_SIZE`         | How many rows are read into memory at a time when constructing exports                                                          | 5000          |
 | `USERS_ADMIN_ACCESS_LIMIT`  | How many active users with admin privilege are allowed                                                                          | `Infinity`    |
-| `USERS_APP_ACCESS_LIMIT`    | How many active users with app access are allowed                                                                               | `Infinity`    |
+| `USERS_APP_ACCESS_LIMIT`    | How many active users with access to the Data Studio are allowed                                                                | `Infinity`    |
 | `USERS_API_ACCESS_LIMIT`    | How many active API access users are allowed                                                                                    | `Infinity`    |
 | `GRAPHQL_QUERY_TOKEN_LIMIT` | How many GraphQL query tokens will be parsed. [More details here](https://graphql-js.org/api/interface/parseoptions/#maxTokens) | 5000          |
 
