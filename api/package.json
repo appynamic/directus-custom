@@ -1,6 +1,6 @@
 {
 	"name": "@directus/api",
-	"version": "22.0.0",
+	"version": "22.1.0",
 	"description": "Directus is a real-time API and App dashboard for managing SQL database content",
 	"keywords": [
 		"directus",
@@ -129,7 +129,7 @@
 		"graphql-ws": "5.16.0",
 		"helmet": "7.1.0",
 		"icc": "3.0.0",
-		"inquirer": "9.3.5",
+		"inquirer": "9.3.6",
 		"ioredis": "5.4.1",
 		"ip-matching": "2.1.2",
 		"isolated-vm": "4.7.2",
@@ -173,7 +173,7 @@
 		"sharp": "0.33.4",
 		"snappy": "7.2.2",
 		"stream-json": "1.8.0",
-		"tar": "7.4.2",
+		"tar": "7.4.3",
 		"tsx": "4.16.5",
 		"wellknown": "0.5.0",
 		"ws": "8.18.0",
