@@ -177,7 +177,7 @@ watch(
 	exportCount,
 	() => {
 		const queryLimitThreshold = exportCount.value > queryLimitMax;
-		const batchThreshold = exportCount.value >= 2500;
+		const batchThreshold = exportCount.value >= 15000; // 2500
 
 		if (queryLimitThreshold || batchThreshold) {
 			lockedToFiles.value = {
