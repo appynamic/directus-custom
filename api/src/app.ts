@@ -114,7 +114,12 @@ export default async function createApp(): Promise<express.Application> {
 	const flowManager = getFlowManager();
 
 	await extensionManager.initialize();
-	await flowManager.initialize();
+	//await flowManager.initialize();
+	if (!env['NOFLOWS']) {
+		await flowManager.initialize();
+	} else {
+		logger.warn('NOFLOWS ON');
+	}
 
 	const app = express();
 
